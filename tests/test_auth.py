@@ -26,7 +26,14 @@ settings = Settings(
 
 
 def make_token(claims: dict, secret: str = SECRET) -> HTTPAuthorizationCredentials:
-    payload = {"exp": datetime.now(UTC) + timedelta(minutes=15), **claims}
+    payload = {
+        "exp": datetime.now(UTC) + timedelta(minutes=15),
+        "typ": "access",
+        "iss": "goodfood-auth",
+        "aud": "goodfood-api",
+        **claims,
+    }
+    payload = {k: v for k, v in payload.items() if v is not None}
     return HTTPAuthorizationCredentials(scheme="Bearer", credentials=jwt.encode(payload, secret, algorithm="HS256"))
 
 
@@ -61,9 +68,22 @@ def test_token_signed_with_another_secret_is_rejected():
 
 
 def test_expired_token_is_rejected():
-    expired = jwt.encode(
-        {"sub": "u1", "exp": datetime.now(UTC) - timedelta(minutes=1)}, SECRET, algorithm="HS256"
-    )
+    expired = jwt.encode({"sub": "u1", "exp": datetime.now(UTC) - timedelta(minutes=1)}, SECRET, algorithm="HS256")
     with pytest.raises(HTTPException) as excinfo:
         current_actor(HTTPAuthorizationCredentials(scheme="Bearer", credentials=expired), settings)
     assert excinfo.value.status_code == 401
+
+
+@pytest.mark.parametrize(
+    "claims",
+    [
+        {"sub": "u1", "typ": "refresh"},
+        {"sub": "u1", "typ": None},
+        {"sub": "u1", "aud": "elsewhere"},
+        {"sub": "u1", "iss": "elsewhere"},
+    ],
+)
+def test_only_access_tokens_for_this_platform_are_accepted(claims):
+    with pytest.raises(HTTPException) as exc:
+        current_actor(make_token(claims), settings)
+    assert exc.value.status_code == 401

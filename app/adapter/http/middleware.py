@@ -60,9 +60,21 @@ def current_actor(
 
     token = credentials.credentials
     try:
-        claims = jwt.decode(token, settings.jwt_secret, algorithms=["HS256"])
+        claims = jwt.decode(
+            token,
+            settings.jwt_secret,
+            algorithms=["HS256"],
+            issuer=settings.jwt_issuer,
+            audience=settings.jwt_audience,
+            leeway=30,
+            options={"require": ["exp", "sub", "iss", "aud"]},
+        )
     except jwt.PyJWTError as exc:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="invalid or expired token") from exc
+    # Only access tokens: refresh tokens (another key, typ=refresh) and untyped
+    # tokens are refused.
+    if claims.get("typ") != "access":
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="invalid or expired token")
 
     return Actor(
         user_id=claims.get("sub", ""),
