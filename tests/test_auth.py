@@ -61,6 +61,25 @@ def test_missing_token_is_rejected():
     assert excinfo.value.status_code == 401
 
 
+def test_the_web_session_cookie_authenticates():
+    cookie = make_token({"sub": "u3", "role_slugs": ["admin"]}).credentials
+    actor = current_actor(None, settings, session_cookie=cookie)
+    assert actor.user_id == "u3"
+    assert actor.is_admin
+
+
+def test_the_bearer_header_wins_over_the_cookie():
+    header = make_token({"sub": "from-header"})
+    cookie = make_token({"sub": "from-cookie"}).credentials
+    assert current_actor(header, settings, session_cookie=cookie).user_id == "from-header"
+
+
+def test_an_invalid_cookie_is_rejected():
+    with pytest.raises(HTTPException) as excinfo:
+        current_actor(None, settings, session_cookie="not-a-jwt")
+    assert excinfo.value.status_code == 401
+
+
 def test_token_signed_with_another_secret_is_rejected():
     with pytest.raises(HTTPException) as excinfo:
         current_actor(make_token({"sub": "u1"}, secret="wrong-secret"), settings)

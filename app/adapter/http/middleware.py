@@ -2,7 +2,9 @@
 
 Same contract as every other service: HS256, shared JWT_SECRET, claims
 `sub` / `tenant_id` / `role_slugs`. Validation is local — no call back to
-auth-service.
+auth-service. The token comes from the `Authorization: Bearer` header (mobile,
+service calls) or, for the web front, from the HttpOnly `auth_token` cookie
+set by auth-service.
 """
 
 from __future__ import annotations
@@ -10,9 +12,10 @@ from __future__ import annotations
 import logging
 import time
 import uuid
+from typing import Annotated
 
 import jwt
-from fastapi import Depends, HTTPException, Request, status
+from fastapi import Cookie, Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from starlette.middleware.base import BaseHTTPMiddleware
 
@@ -20,6 +23,7 @@ from app.application.actor import Actor
 from app.config import Settings, get_settings
 
 HEADER_REQUEST_ID = "X-Request-ID"
+SESSION_COOKIE = "auth_token"
 
 logger = logging.getLogger("analytics")
 bearer_scheme = HTTPBearer(auto_error=False)
@@ -54,11 +58,12 @@ class RequestContextMiddleware(BaseHTTPMiddleware):
 def current_actor(
     credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
     settings: Settings = Depends(get_settings),
+    session_cookie: Annotated[str | None, Cookie(alias=SESSION_COOKIE)] = None,
 ) -> Actor:
-    if credentials is None or not credentials.credentials:
+    token = credentials.credentials if credentials and credentials.credentials else session_cookie
+    if not token:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="missing bearer token")
 
-    token = credentials.credentials
     try:
         claims = jwt.decode(
             token,
