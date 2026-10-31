@@ -21,6 +21,7 @@ settings = Settings(
     jwt_secret=SECRET,
     order_service_url="http://order",
     franchise_service_url="http://franchise",
+    service_api_key="svc",
     cache_ttl_seconds=60,
 )
 

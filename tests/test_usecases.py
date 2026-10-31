@@ -23,7 +23,7 @@ class FakeOrders:
     def __init__(self) -> None:
         self.calls: list[str] = []
 
-    async def list_by_restaurant(self, restaurant_id: str, token: str) -> list[Order]:
+    async def list_by_restaurant(self, restaurant_id: str) -> list[Order]:
         self.calls.append(restaurant_id)
         return [
             Order(

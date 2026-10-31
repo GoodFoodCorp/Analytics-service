@@ -8,9 +8,9 @@ from app.domain.metrics import Metrics, Order
 
 
 class OrderSource(Protocol):
-    """Reads orders from order-service, which owns them."""
+    """Reads a restaurant's sales from order-service, which owns them."""
 
-    async def list_by_restaurant(self, restaurant_id: str, token: str) -> list[Order]: ...
+    async def list_by_restaurant(self, restaurant_id: str) -> list[Order]: ...
 
 
 class RestaurantSource(Protocol):

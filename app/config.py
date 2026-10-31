@@ -15,6 +15,7 @@ class Settings:
     jwt_secret: str
     order_service_url: str
     franchise_service_url: str
+    service_api_key: str
     cache_ttl_seconds: int
     jwt_issuer: str = "goodfood-auth"
     jwt_audience: str = "goodfood-api"
@@ -28,6 +29,9 @@ def get_settings() -> Settings:
         raise RuntimeError("DATABASE_URL is required")
     if not jwt_secret:
         raise RuntimeError("JWT_SECRET is required")
+    service_api_key = os.getenv("SERVICE_API_KEY", "")
+    if not service_api_key:
+        raise RuntimeError("SERVICE_API_KEY is required (order-service internal API)")
 
     return Settings(
         port=int(os.getenv("PORT", "8091")),
@@ -36,6 +40,7 @@ def get_settings() -> Settings:
         jwt_secret=jwt_secret,
         order_service_url=os.getenv("ORDER_SERVICE_URL", "http://localhost:8082"),
         franchise_service_url=os.getenv("FRANCHISE_SERVICE_URL", "http://localhost:8089"),
+        service_api_key=service_api_key,
         cache_ttl_seconds=int(os.getenv("CACHE_TTL_SECONDS", "60")),
         jwt_issuer=os.getenv("JWT_ISSUER", "goodfood-auth"),
         jwt_audience=os.getenv("JWT_AUDIENCE", "goodfood-api"),
