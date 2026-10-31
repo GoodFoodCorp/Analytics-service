@@ -1,8 +1,8 @@
 """Use cases — one per dashboard. All business rules live here.
 
-Authorization is enforced twice on purpose: once here (a manager may only ask
-for their own restaurant) and once upstream, since every call to order-service
-forwards the caller's own JWT rather than a service account.
+Authorization lives here: head office reads the whole network, a manager only
+their own restaurant. Order-service hands the sales over its internal API
+(service key) and never the customers' orders themselves.
 """
 
 from __future__ import annotations
@@ -43,7 +43,7 @@ class UseCases:
             return cached
 
         names = await self._restaurants.list_restaurants(actor.token)
-        orders = await self._collect_orders(list(names), actor.token)
+        orders = await self._collect_orders(list(names))
 
         computed = domain.compute(orders, period_days, _now(), restaurant_names=names)
         await self._snapshots.save("network", computed)
@@ -61,7 +61,7 @@ class UseCases:
             return cached
 
         names = await self._restaurants.list_restaurants(actor.token)
-        orders = await self._orders.list_by_restaurant(target, actor.token)
+        orders = await self._orders.list_by_restaurant(target)
 
         computed = domain.compute(
             orders,
@@ -86,13 +86,13 @@ class UseCases:
             raise DomainError.forbidden("you can only read your own restaurant's analytics")
         return actor.tenant_id
 
-    async def _collect_orders(self, restaurant_ids: list[str], token: str) -> list[domain.Order]:
+    async def _collect_orders(self, restaurant_ids: list[str]) -> list[domain.Order]:
         """Fan out across restaurants — order-service owns the data and has no
         network-wide endpoint, so the aggregate is built here."""
         if not restaurant_ids:
             return []
         batches = await asyncio.gather(
-            *(self._orders.list_by_restaurant(restaurant_id, token) for restaurant_id in restaurant_ids)
+            *(self._orders.list_by_restaurant(restaurant_id) for restaurant_id in restaurant_ids)
         )
         return [order for batch in batches for order in batch]
 

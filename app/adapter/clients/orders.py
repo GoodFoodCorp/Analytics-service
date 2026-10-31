@@ -1,8 +1,9 @@
 """order-service client — implements domain.ports.OrderSource.
 
-The caller's own JWT is forwarded rather than a service account, so
-order-service applies its usual authorization (a manager only ever gets their
-own restaurant back).
+Reads a restaurant's sales through order-service's internal API (service
+key): amounts, statuses and dishes, never the customers. Who may see which
+figures is decided by the use cases; head office has no access to the orders
+themselves.
 """
 
 from __future__ import annotations
@@ -21,14 +22,15 @@ MAX_PAGES = 100
 
 
 class OrderClient:
-    def __init__(self, base_url: str, timeout_seconds: float = 10.0) -> None:
+    def __init__(self, base_url: str, service_key: str, timeout_seconds: float = 10.0) -> None:
         self._base_url = base_url.rstrip("/")
+        self._service_key = service_key
         self._timeout = timeout_seconds
 
-    async def list_by_restaurant(self, restaurant_id: str, token: str) -> list[Order]:
-        """Every order of the restaurant, following order-service's pages
+    async def list_by_restaurant(self, restaurant_id: str) -> list[Order]:
+        """Every sale of the restaurant, following order-service's pages
         (X-Next-Offset) until the last one."""
-        url = f"{self._base_url}/api/orders"
+        url = f"{self._base_url}/internal/orders/sales"
         orders: list[Order] = []
         offset = 0
         async with httpx.AsyncClient(timeout=self._timeout) as client:
@@ -37,15 +39,11 @@ class OrderClient:
                     response = await client.get(
                         url,
                         params={"restaurantId": restaurant_id, "limit": PAGE_SIZE, "offset": offset},
-                        headers={"Authorization": f"Bearer {token}"},
+                        headers={"X-Service-Key": self._service_key},
                     )
                 except httpx.HTTPError as exc:
                     raise DomainError.upstream(f"order-service unreachable: {exc}") from exc
 
-                # A restaurant the caller may not read is not an analytics
-                # failure — it simply contributes nothing to the aggregate.
-                if response.status_code == 403:
-                    return []
                 if response.status_code >= 400:
                     raise DomainError.upstream(f"order-service returned {response.status_code}")
 

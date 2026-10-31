@@ -68,7 +68,7 @@ def create_app() -> FastAPI:
 
         state["pool"] = pool
         state["use_cases"] = UseCases(
-            orders=OrderClient(settings.order_service_url),
+            orders=OrderClient(settings.order_service_url, settings.service_api_key),
             restaurants=RestaurantClient(settings.franchise_service_url),
             snapshots=SnapshotRepository(pool),
             cache_ttl_seconds=settings.cache_ttl_seconds,
