@@ -11,6 +11,8 @@ services:
       DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@analytics-db:5432/${POSTGRES_DB}
       ORDER_SERVICE_URL: http://order-service:8082
       FRANCHISE_SERVICE_URL: http://franchise-service:8089
+      # Shared with order-service: the dashboards read sales over its internal API.
+      SERVICE_API_KEY: ${SERVICE_API_KEY:?SERVICE_API_KEY must be set (shared with order-service)}
     depends_on:
       analytics-db:
         condition: service_healthy
